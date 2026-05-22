@@ -107,6 +107,27 @@ The daily job is also wired to `workflow_dispatch` — trigger it manually
 from the Actions tab to capture the first snapshot immediately instead of
 waiting for the 06:00 UTC cron.
 
+## Dashboard
+
+An interactive dashboard compares plugin and theme metrics — installs,
+downloads, ratings — over time across the accumulating daily snapshots. It
+is a static site (`docs/index.html`, `docs/app.js`, `docs/style.css`)
+served on GitHub Pages.
+
+`scripts/export_dashboard.py` reads `catalog.duckdb` and writes the static
+JSON files the dashboard loads into `docs/data/`. That directory is
+gitignored — it is **generated in CI at deploy time and never committed**.
+
+The [`pages.yml`](.github/workflows/pages.yml) workflow regenerates
+`docs/data/` and deploys the whole `docs/` folder. It runs on every push
+that touches `docs/` and after each daily sync, so a fresh snapshot
+redeploys the dashboard automatically.
+
+GitHub Pages must use **"GitHub Actions"** as its source. The workflow's
+`configure-pages` step (`enablement: true`) sets this up automatically on
+the first run; if Pages does not come up, check that
+**Settings → Pages → Source** is set to GitHub Actions.
+
 ## Schemas
 
 Every table additionally has a `snapshot_date DATE` column and an index on

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WordPress Ecosystem Analytics</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5"></script>
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <h1 class="site-title">WordPress Ecosystem Analytics</h1>
+      <nav class="tabs" id="tabs" aria-label="Views">
+        <button class="tab" data-view="compare" type="button">Compare</button>
+        <button class="tab" data-view="ecosystem" type="button">Ecosystem</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- Compare view -->
+    <section id="view-compare" class="view">
+      <div class="controls">
+        <div class="control-group">
+          <div class="type-toggle" id="type-toggle" role="group" aria-label="Entity type">
+            <button class="type-btn" data-type="plugins" type="button">Plugins</button>
+            <button class="type-btn" data-type="themes" type="button">Themes</button>
+          </div>
+        </div>
+
+        <div class="control-group search-group">
+          <label class="field-label" for="search-input">Search</label>
+          <div class="search-wrap">
+            <input id="search-input" class="search-input" type="text"
+                   autocomplete="off" spellcheck="false"
+                   role="combobox" aria-autocomplete="list"
+                   aria-expanded="false" aria-controls="search-results"
+                   placeholder="Search by name or slug...">
+            <ul id="search-results" class="search-results" role="listbox" hidden></ul>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label class="field-label" for="metric-select">Metric</label>
+          <select id="metric-select" class="metric-select"></select>
+        </div>
+      </div>
+
+      <div id="chips" class="chips" aria-label="Selected entities"></div>
+
+      <p id="snapshot-hint" class="hint" hidden></p>
+
+      <div class="chart-card">
+        <div id="compare-status" class="chart-status"></div>
+        <div id="compare-chart" class="chart compare-chart"></div>
+      </div>
+    </section>
+
+    <!-- Ecosystem view -->
+    <section id="view-ecosystem" class="view" hidden>
+      <div id="ecosystem-status" class="chart-status standalone-status"></div>
+      <div class="eco-grid">
+        <div class="chart-card">
+          <h2 class="chart-heading">WordPress versions</h2>
+          <div id="chart-wordpress" class="chart eco-chart"></div>
+        </div>
+        <div class="chart-card">
+          <h2 class="chart-heading">PHP versions</h2>
+          <div id="chart-php" class="chart eco-chart"></div>
+        </div>
+        <div class="chart-card">
+          <h2 class="chart-heading">MySQL versions</h2>
+          <div id="chart-mysql" class="chart eco-chart"></div>
+        </div>
+        <div class="chart-card">
+          <h2 class="chart-heading">Locales <span class="chart-sub">(top 15)</span></h2>
+          <div id="chart-locale" class="chart eco-chart"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <span id="footer-meta"></span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
