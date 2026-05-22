@@ -47,8 +47,9 @@ plugins:
       config:
         # JSONL files land here; load_snapshot.py reads them next.
         destination_path: output
-        # Write plain "<stream>.jsonl" names (no timestamp suffix) so the
-        # loader can map each file straight to its stream.
+        # andyh1203/target-jsonl defaults do_timestamp_file to true, which
+        # emits "<stream>-<timestamp>.jsonl". Force plain "<stream>.jsonl"
+        # names so the loader maps each file straight to its stream.
         do_timestamp_file: false
 
 environments:
