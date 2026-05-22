@@ -62,5 +62,8 @@ jobs:
             echo "No changes in catalog.duckdb — nothing to commit."
           else
             git commit -m "Daily snapshot $(date -u +%Y-%m-%d)"
+            # Replay onto anything pushed during this run so the push
+            # cannot fail non-fast-forward and drop the snapshot.
+            git pull --rebase origin "${{ github.ref_name }}"
             git push
           fi
