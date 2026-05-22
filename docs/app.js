@@ -42,6 +42,7 @@
   var ecoLoaded = false;
   var debounceTimer = null;
   var activeResultIdx = -1;
+  var compareReqToken = 0;    // bumped per refresh; stale fetches are dropped
 
   // ----- DOM references -----------------------------------------------------
   var $ = function (id) { return document.getElementById(id); };
@@ -169,8 +170,10 @@
     writeUrl();
 
     if (view === 'compare') {
-      // Chart may have been hidden when created; ensure correct size.
-      if (compareChart) compareChart.resize();
+      // (Re)draw now that the container is visible and laid out. This also
+      // covers opening the page directly on the ecosystem view, where the
+      // compare chart was never built.
+      refreshCompareChart();
     } else {
       ensureEcosystem();
     }
@@ -219,6 +222,7 @@
 
   // ----- Compare: search / autocomplete ------------------------------------
   function runSearch(query) {
+    if (!index) return;             // index.json not loaded yet
     var q = query.trim().toLowerCase();
     if (!q) { closeResults(); return; }
     var list = index[state.type];   // [[slug,name,shard],...]
@@ -243,12 +247,14 @@
       empty.textContent = 'No matches';
       ul.appendChild(empty);
       ul.hidden = false;
+      els.searchInput.setAttribute('aria-expanded', 'true');
       return;
     }
     for (var i = 0; i < matches.length; i++) {
       var m = matches[i];
       var li = document.createElement('li');
       li.setAttribute('role', 'option');
+      li.id = 'sr-opt-' + i;
       li.dataset.slug = m[0];
 
       var nameEl = document.createElement('span');
@@ -270,12 +276,15 @@
       ul.appendChild(li);
     }
     ul.hidden = false;
+    els.searchInput.setAttribute('aria-expanded', 'true');
   }
 
   function closeResults() {
     els.searchResults.hidden = true;
     els.searchResults.textContent = '';
     activeResultIdx = -1;
+    els.searchInput.setAttribute('aria-expanded', 'false');
+    els.searchInput.removeAttribute('aria-activedescendant');
   }
 
   function moveActiveResult(delta) {
@@ -289,6 +298,8 @@
     if (activeResultIdx >= items.length) activeResultIdx = 0;
     items[activeResultIdx].classList.add('active');
     items[activeResultIdx].scrollIntoView({ block: 'nearest' });
+    els.searchInput.setAttribute('aria-activedescendant',
+      items[activeResultIdx].id);
   }
 
   function chooseActiveResult() {
@@ -377,6 +388,7 @@
 
   function refreshCompareChart() {
     updateSnapshotHint();
+    var token = ++compareReqToken;   // invalidates any in-flight request
 
     if (!state.selected.length) {
       if (compareChart) compareChart.clear();
@@ -394,11 +406,14 @@
     Promise.all(slugs.map(function (s) {
       return loadSeries(type, s);
     })).then(function (allSeries) {
-      // Guard: state may have changed while fetching.
-      if (state.type !== type) return;
+      // Drop results from a superseded request -- the selection, metric
+      // or type changed (or the chart was cleared) while this was in
+      // flight, so a slower fetch must not clobber the current chart.
+      if (token !== compareReqToken) return;
       setCompareStatus('');
       drawCompareChart(slugs, allSeries, metricDef);
     }).catch(function (err) {
+      if (token !== compareReqToken) return;
       setCompareStatus('Failed to load data: ' + err.message);
     });
   }
@@ -698,8 +713,7 @@
     rebuildMetricSelect();
     els.metricSelect.value = state.metric;
     renderChips();
-    setView(state.view);     // also sets tab active states + url
-    refreshCompareChart();
+    setView(state.view);     // sets tabs + url, and draws the active view
   }
 
   function init() {
@@ -727,12 +741,14 @@
       if (validKeys.indexOf(state.metric) === -1) {
         state.metric = validKeys[0];
       }
+      var counts = index.counts || {};
+      var nPlugins = counts.plugins != null
+        ? counts.plugins.toLocaleString('en-US') : '?';
+      var nThemes = counts.themes != null
+        ? counts.themes.toLocaleString('en-US') : '?';
       els.footerMeta.textContent =
         'Data generated ' + (index.generated || '-') + '  -  ' +
-        (index.counts ? index.counts.plugins.toLocaleString('en-US') : '?') +
-        ' plugins, ' +
-        (index.counts ? index.counts.themes.toLocaleString('en-US') : '?') +
-        ' themes.';
+        nPlugins + ' plugins, ' + nThemes + ' themes.';
       applyInitialState();
     }).catch(function (err) {
       setCompareStatus('Failed to load index.json: ' + err.message);
