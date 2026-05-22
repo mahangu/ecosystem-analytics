@@ -41,6 +41,12 @@ whole-ecosystem distributions:
 The tap's eighth stream, `events`, is **intentionally excluded** — it is
 location-based event listings, not catalog or ecosystem metadata.
 
+**Known gap:** the `patterns` stream currently lands 0 rows. The tap's
+record JSONPath does not match the pattern directory API's response shape
+— a bug present in every tap release — so the pipeline warns and
+continues with an empty `pattern_snapshots` until the tap is fixed or
+patterns are sourced separately.
+
 ### Full extract, every day
 
 The tap is run with `meltano invoke`, which carries no Singer state, so
