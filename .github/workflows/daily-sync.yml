@@ -23,6 +23,8 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    # Cap the run so a hung extract cannot burn the 6-hour default.
+    timeout-minutes: 30
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
