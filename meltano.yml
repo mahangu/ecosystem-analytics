@@ -4,6 +4,13 @@ project_id: ecosystem-analytics
 
 # Daily extract of WordPress.org catalog + ecosystem metadata snapshots.
 # The tap is consumed as a dependency — never forked or modified here.
+#
+# There is no Singer loader on purpose. The daily workflow runs the tap
+# with `meltano invoke` and captures its raw Singer output to JSONL, which
+# scripts/load_snapshot.py reads straight into DuckDB. `meltano invoke`
+# carries no state, so every run is a full extract — required because
+# installs/downloads/ratings drift without the tap's `last_updated`
+# changing, which an incremental sync would miss.
 plugins:
   extractors:
     - name: tap-wordpress-org
@@ -32,25 +39,6 @@ plugins:
         user_agent: "ecosystem-analytics/1.0 (+https://github.com/mahangu/ecosystem-analytics)"
         # Be polite to the API — small gap between requests.
         request_delay: 0.25
-      # Force every stream to FULL_TABLE. The tap defaults plugins/themes
-      # to INCREMENTAL keyed on `last_updated`, but installs, downloads and
-      # ratings drift WITHOUT that field changing — incremental sync would
-      # silently miss the metrics this pipeline exists to track. FULL_TABLE
-      # means no Singer state bookmark is used: every record, every run.
-      metadata:
-        '*':
-          replication-method: FULL_TABLE
-  loaders:
-    - name: target-jsonl
-      variant: andyh1203
-      pip_url: target-jsonl
-      config:
-        # JSONL files land here; load_snapshot.py reads them next.
-        destination_path: output
-        # andyh1203/target-jsonl defaults do_timestamp_file to true, which
-        # emits "<stream>-<timestamp>.jsonl". Force plain "<stream>.jsonl"
-        # names so the loader maps each file straight to its stream.
-        do_timestamp_file: false
 
 environments:
   - name: dev

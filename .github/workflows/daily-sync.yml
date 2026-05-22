@@ -41,7 +41,11 @@ jobs:
         run: meltano install
 
       - name: Extract WordPress.org streams to JSONL
-        run: meltano run tap-wordpress-org target-jsonl
+        # Run the tap directly and capture its raw Singer output. No Singer
+        # loader is used — load_snapshot.py reads the raw messages itself.
+        run: |
+          mkdir -p output
+          meltano invoke tap-wordpress-org > output/tap-output.jsonl
 
       - name: Load snapshot into DuckDB
         # load_snapshot.py exits non-zero if the plugins or themes stream

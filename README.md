@@ -14,9 +14,9 @@ storage.**
 
 ```
 GitHub Actions (cron 06:00 UTC)
-  └─ meltano run tap-wordpress-org target-jsonl   # extract → output/*.jsonl
-      └─ scripts/load_snapshot.py                 # JSONL → catalog.duckdb
-          └─ git commit catalog.duckdb            # snapshot stored in the repo
+  └─ meltano invoke tap-wordpress-org > output/tap-output.jsonl   # extract
+      └─ scripts/load_snapshot.py                                # → catalog.duckdb
+          └─ git commit catalog.duckdb                           # stored in the repo
 ```
 
 The tap is consumed as a pinned dependency
@@ -41,14 +41,15 @@ whole-ecosystem distributions:
 The tap's eighth stream, `events`, is **intentionally excluded** — it is
 location-based event listings, not catalog or ecosystem metadata.
 
-### Full-table, every day
+### Full extract, every day
 
-Every stream runs in **FULL_TABLE** mode and no Singer state is carried
-between runs (`meltano.yml` sets `replication-method: FULL_TABLE` for all
-streams). The tap defaults `plugins`/`themes` to incremental replication
-keyed on `last_updated`, but installs, downloads and ratings drift
-*without* `last_updated` changing — an incremental sync would silently
-miss exactly the metrics this pipeline exists to track.
+The tap is run with `meltano invoke`, which carries no Singer state, so
+every run is a complete extract. This is deliberate: the tap defaults
+`plugins`/`themes` to incremental replication keyed on `last_updated`, but
+installs, downloads and ratings drift *without* `last_updated` changing —
+an incremental sync would silently miss exactly the metrics this pipeline
+exists to track. No Singer loader is used; `load_snapshot.py` reads the
+tap's raw Singer output directly.
 
 ### Append-only and idempotent
 
@@ -64,13 +65,12 @@ Requires Python 3.11.
 ```bash
 pip install meltano duckdb
 
-# Install the tap + loader into the Meltano project.
+# Install the tap into the Meltano project.
 meltano install
 
-# Extract the seven streams to output/*.jsonl.
-# target-jsonl appends to existing files, so clear output/ before a re-run.
-rm -rf output
-meltano run tap-wordpress-org target-jsonl
+# Extract the seven streams to a raw Singer JSONL file.
+mkdir -p output
+meltano invoke tap-wordpress-org > output/tap-output.jsonl
 
 # Load the JSONL into catalog.duckdb, stamped with today's UTC date.
 python scripts/load_snapshot.py --input output --db catalog.duckdb
