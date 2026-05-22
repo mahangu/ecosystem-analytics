@@ -49,14 +49,15 @@ SELECT slug, name, active_installs, downloaded, rating
 
 
 -- ===========================================================================
--- 3. Top 10 themes by downloads (latest snapshot).
---    Healthy: well-known themes with large download counts and non-null
---    ratings. Themes have no active_installs, so downloads is the proxy.
+-- 3. Top 10 themes by number of ratings (latest snapshot).
+--    The WordPress.org themes browse API exposes no download count, so
+--    num_ratings is the available popularity proxy.
+--    Healthy: well-known themes with many ratings.
 -- ===========================================================================
-SELECT slug, name, downloaded, rating, num_ratings
+SELECT slug, name, num_ratings, rating
   FROM theme_snapshots
  WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM theme_snapshots)
- ORDER BY downloaded DESC NULLS LAST
+ ORDER BY num_ratings DESC NULLS LAST
  LIMIT 10;
 
 
@@ -111,9 +112,9 @@ SELECT cur.slug,
 
 
 -- ===========================================================================
--- 7. Day-over-day delta for themes — biggest download movers.
---    Returns nothing until at least two snapshots exist. Healthy once it
---    does: downloads only ever increase, so deltas should be >= 0.
+-- 7. Day-over-day delta for themes — biggest movers by rating count.
+--    Returns nothing until at least two snapshots exist. (The browse API
+--    exposes no download count, so num_ratings is the tracked metric.)
 -- ===========================================================================
 WITH theme_dates AS (
     SELECT snapshot_date,
@@ -122,15 +123,15 @@ WITH theme_dates AS (
 )
 SELECT cur.slug,
        cur.name,
-       prev.downloaded AS prev_downloaded,
-       cur.downloaded  AS cur_downloaded,
-       cur.downloaded - prev.downloaded AS delta_downloaded
+       prev.num_ratings AS prev_num_ratings,
+       cur.num_ratings  AS cur_num_ratings,
+       cur.num_ratings - prev.num_ratings AS delta_num_ratings
   FROM theme_snapshots cur
   JOIN theme_snapshots prev ON cur.slug = prev.slug
  WHERE cur.snapshot_date  = (SELECT snapshot_date FROM theme_dates WHERE rn = 1)
    AND prev.snapshot_date = (SELECT snapshot_date FROM theme_dates WHERE rn = 2)
-   AND cur.downloaded <> prev.downloaded
- ORDER BY ABS(cur.downloaded - prev.downloaded) DESC
+   AND cur.num_ratings <> prev.num_ratings
+ ORDER BY ABS(cur.num_ratings - prev.num_ratings) DESC
  LIMIT 20;
 
 
@@ -151,7 +152,7 @@ UNION ALL
 SELECT 'theme_snapshots',
        COUNT(*),
        COUNT(*) FILTER (WHERE slug IS NULL),
-       COUNT(*) FILTER (WHERE downloaded IS NULL OR downloaded = 0)
+       COUNT(*) FILTER (WHERE num_ratings IS NULL OR num_ratings = 0)
   FROM theme_snapshots
  WHERE snapshot_date = (SELECT MAX(snapshot_date) FROM theme_snapshots)
 UNION ALL

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Load WordPress.org ecosystem JSONL snapshots into DuckDB.
 
-Reads the JSONL emitted by ``meltano run tap-wordpress-org target-jsonl``
+Reads the raw Singer JSONL emitted by ``meltano invoke tap-wordpress-org``
 and writes seven append-only, date-stamped snapshot tables into a DuckDB
 database file.
 

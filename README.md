@@ -134,19 +134,24 @@ extracted columns can be adjusted later without re-fetching.
 | `slug`              | VARCHAR | |
 | `name`              | VARCHAR | |
 | `version`           | VARCHAR | |
-| `downloaded`        | BIGINT  | themes have no `active_installs` |
+| `downloaded`        | BIGINT  | not exposed by the themes browse API — always null |
 | `rating`            | DOUBLE  | 0–100 scale |
-| `num_ratings`       | BIGINT  | |
+| `num_ratings`       | BIGINT  | popularity proxy (themes have no download count) |
 | `requires`          | VARCHAR | |
 | `requires_php`      | VARCHAR | |
-| `last_updated`      | VARCHAR | |
-| `last_updated_time` | VARCHAR | |
+| `last_updated`      | VARCHAR | not exposed by the themes browse API — always null |
+| `last_updated_time` | VARCHAR | not exposed by the themes browse API — always null |
 | `preview_url`       | VARCHAR | |
 | `screenshot_url`    | VARCHAR | |
 | `homepage`          | VARCHAR | |
-| `parent`            | JSON    | parent theme object (child themes only) |
+| `parent`            | JSON    | not exposed by the themes browse API — always null |
 | `author`            | JSON    | author object |
 | `raw`               | JSON    | complete original record |
+
+The WordPress.org themes *browse* API does not return `downloaded`,
+`last_updated`/`last_updated_time`, or `parent`, so those columns are
+always null. They are kept in the schema in case the tap starts
+populating them; `num_ratings` is the usable popularity signal for themes.
 
 ### `pattern_snapshots` — key `(id, snapshot_date)`
 
