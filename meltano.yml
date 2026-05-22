@@ -27,9 +27,9 @@ plugins:
           - php_stats
           - mysql_stats
           - locale_stats
-        # Identifies this pipeline to the WordPress.org API. Replace the
-        # placeholder URL with a real contact link before running regularly.
-        user_agent: "ecosystem-analytics/1.0 (+https://example.com/contact)"
+        # Identifies this pipeline to the WordPress.org API so they have a
+        # contact point (the repo's issue tracker) if it ever misbehaves.
+        user_agent: "ecosystem-analytics/1.0 (+https://github.com/mahangu/ecosystem-analytics)"
         # Be polite to the API — small gap between requests.
         request_delay: 0.25
       # Force every stream to FULL_TABLE. The tap defaults plugins/themes
