@@ -68,6 +68,8 @@ pip install meltano duckdb
 meltano install
 
 # Extract the seven streams to output/*.jsonl.
+# target-jsonl appends to existing files, so clear output/ before a re-run.
+rm -rf output
 meltano run tap-wordpress-org target-jsonl
 
 # Load the JSONL into catalog.duckdb, stamped with today's UTC date.

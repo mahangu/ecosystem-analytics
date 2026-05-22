@@ -237,11 +237,16 @@ def iter_records(input_dir):
     for path in files:
         file_stream = stream_from_filename(path)
         with open(path, "r", encoding="utf-8") as handle:
-            for line in handle:
+            for lineno, line in enumerate(handle, 1):
                 line = line.strip()
                 if not line:
                     continue
-                obj = json.loads(line)
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    print(f"WARNING: skipping malformed line {lineno} in "
+                          f"'{path}': {exc}.", file=sys.stderr)
+                    continue
                 if not isinstance(obj, dict):
                     continue
                 msg_type = obj.get("type")
@@ -310,7 +315,12 @@ def main():
     args = parser.parse_args()
 
     if args.date:
-        snapshot_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+        try:
+            snapshot_date = datetime.strptime(args.date, "%Y-%m-%d").date()
+        except ValueError:
+            raise SystemExit(
+                f"ERROR: --date '{args.date}' is not a valid YYYY-MM-DD date."
+            )
     else:
         snapshot_date = datetime.now(timezone.utc).date()
 
