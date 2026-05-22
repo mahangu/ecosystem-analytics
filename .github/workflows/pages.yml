@@ -55,9 +55,10 @@ jobs:
         run: python scripts/export_dashboard.py --db catalog.duckdb --out docs/data
 
       - name: Configure Pages
+        # Pages must be enabled once by hand in Settings -> Pages
+        # (Source: GitHub Actions). The GITHUB_TOKEN cannot create the
+        # Pages site itself, so this only reads the existing config.
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

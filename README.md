@@ -123,10 +123,10 @@ The [`pages.yml`](.github/workflows/pages.yml) workflow regenerates
 that touches `docs/` and after each daily sync, so a fresh snapshot
 redeploys the dashboard automatically.
 
-GitHub Pages must use **"GitHub Actions"** as its source. The workflow's
-`configure-pages` step (`enablement: true`) sets this up automatically on
-the first run; if Pages does not come up, check that
-**Settings → Pages → Source** is set to GitHub Actions.
+GitHub Pages must be enabled once, by hand: **Settings → Pages → Source**
+→ **"GitHub Actions"**. The `GITHUB_TOKEN` cannot create the Pages site
+itself, so the workflow only reads the existing Pages config — deploys
+fail until Pages has been enabled in repo settings.
 
 ## Schemas
 
