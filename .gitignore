@@ -1,0 +1,15 @@
+# Meltano working directory (plugin installs, run logs, state).
+.meltano/
+
+# Tap output — transient extract artifacts, regenerated every run.
+output/
+*.jsonl
+
+# The DuckDB snapshot database IS committed on purpose (the repo is the
+# storage), so it is deliberately NOT ignored here.
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

@@ -1,0 +1,60 @@
+name: daily-sync
+
+# Runs the WordPress.org ecosystem extract once a day, loads the result
+# into catalog.duckdb, and commits the updated database back to this repo.
+# The repo itself is the storage — there is no database server.
+
+on:
+  schedule:
+    # 06:00 UTC daily. Use the workflow_dispatch trigger below to run the
+    # very first snapshot now rather than waiting for this cron.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+# Required so the job can commit catalog.duckdb back to the repository.
+permissions:
+  contents: write
+
+# Never let two snapshot runs race on the same DuckDB file / git push.
+concurrency:
+  group: daily-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install meltano duckdb
+
+      - name: Install Meltano plugins
+        run: meltano install
+
+      - name: Extract WordPress.org streams to JSONL
+        run: meltano run tap-wordpress-org target-jsonl
+
+      - name: Load snapshot into DuckDB
+        # load_snapshot.py exits non-zero if the plugins or themes stream
+        # produced zero records, which fails the whole run loudly and
+        # skips the commit step below — a broken extract is never stored.
+        run: python scripts/load_snapshot.py --input output --db catalog.duckdb
+
+      - name: Commit DuckDB snapshot
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add catalog.duckdb
+          if git diff --cached --quiet; then
+            echo "No changes in catalog.duckdb — nothing to commit."
+          else
+            git commit -m "Daily snapshot $(date -u +%Y-%m-%d)"
+            git push
+          fi

@@ -1,0 +1,55 @@
+version: 1
+default_environment: dev
+project_id: ecosystem-analytics
+
+# Daily extract of WordPress.org catalog + ecosystem metadata snapshots.
+# The tap is consumed as a dependency — never forked or modified here.
+plugins:
+  extractors:
+    - name: tap-wordpress-org
+      namespace: tap_wordpress_org
+      # Pinned to a release tag for reproducible installs.
+      pip_url: git+https://github.com/Automattic/tap-wordpress-org.git@0.1.0
+      executable: tap-wordpress-org
+      capabilities:
+        - state
+        - catalog
+        - discover
+        - properties
+      config:
+        # Seven streams only — "events" is intentionally excluded (it is
+        # location-based event listings, not catalog/ecosystem metadata).
+        stream_selection:
+          - plugins
+          - themes
+          - patterns
+          - wordpress_stats
+          - php_stats
+          - mysql_stats
+          - locale_stats
+        # Identifies this pipeline to the WordPress.org API. Replace the
+        # placeholder URL with a real contact link before running regularly.
+        user_agent: "ecosystem-analytics/1.0 (+https://example.com/contact)"
+        # Be polite to the API — small gap between requests.
+        request_delay: 0.25
+      # Force every stream to FULL_TABLE. The tap defaults plugins/themes
+      # to INCREMENTAL keyed on `last_updated`, but installs, downloads and
+      # ratings drift WITHOUT that field changing — incremental sync would
+      # silently miss the metrics this pipeline exists to track. FULL_TABLE
+      # means no Singer state bookmark is used: every record, every run.
+      metadata:
+        '*':
+          replication-method: FULL_TABLE
+  loaders:
+    - name: target-jsonl
+      variant: andyh1203
+      pip_url: target-jsonl
+      config:
+        # JSONL files land here; load_snapshot.py reads them next.
+        destination_path: output
+        # Write plain "<stream>.jsonl" names (no timestamp suffix) so the
+        # loader can map each file straight to its stream.
+        do_timestamp_file: false
+
+environments:
+  - name: dev
