@@ -1,0 +1,69 @@
+name: Deploy dashboard
+
+# Builds the static dashboard's JSON data from catalog.duckdb and deploys
+# the docs/ folder to GitHub Pages. docs/data/ is gitignored, so it is
+# regenerated here at deploy time and never committed.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/ecosystem-analytics-pipeline-pr6VA
+    paths:
+      - docs/**
+      - scripts/export_dashboard.py
+      - .github/workflows/pages.yml
+  # Redeploy after every daily snapshot so the dashboard always reflects
+  # the latest catalog.duckdb.
+  workflow_run:
+    workflows: ["daily-sync"]
+    types: [completed]
+
+# Pages deploys need read access to the repo plus the OIDC token and
+# pages write scope used by deploy-pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two Pages deploys race; let an in-flight deploy finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    # Skip the deploy if this run was triggered by a FAILED daily-sync.
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install duckdb
+
+      - name: Export dashboard data
+        run: python scripts/export_dashboard.py --db catalog.duckdb --out docs/data
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

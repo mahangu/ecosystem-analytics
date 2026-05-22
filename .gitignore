@@ -8,6 +8,10 @@ output/
 # The DuckDB snapshot database IS committed on purpose (the repo is the
 # storage), so it is deliberately NOT ignored here.
 
+# Dashboard data — regenerated from catalog.duckdb by the Pages workflow
+# and deployed as a build artifact; never committed (see scripts/export_dashboard.py).
+docs/data/
+
 # Python
 __pycache__/
 *.pyc
