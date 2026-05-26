@@ -1,22 +1,29 @@
 # ecosystem-analytics
 
 A zero-cost daily data pipeline that snapshots the **WordPress.org catalog
-and ecosystem metadata** into a DuckDB file kept inside this repository.
+and ecosystem metadata** into a DuckDB file published as a GitHub release
+asset on this repository.
 
 Every day a GitHub Actions job runs the
 [`tap-wordpress-org`](https://github.com/Automattic/tap-wordpress-org)
 Singer tap, extracts seven streams, loads them into `catalog.duckdb` as
-dated, append-only snapshots, and commits the updated database back to the
-repo. There is no database server and no hosting bill — **the repo is the
-storage.**
+dated, append-only snapshots, and re-uploads the database as the single
+asset on the `data-latest` GitHub release. There is no database server
+and no hosting bill — **the release is the storage.**
+
+The DB file itself is **not** committed to the repo: it grows past
+GitHub's 100 MB per-file push limit within a handful of daily snapshots,
+which broke the original "repo is the storage" design. The `data-latest`
+release asset has a 2 GB ceiling and is replaced in place each run.
 
 ## How it works
 
 ```
 GitHub Actions (cron 06:00 UTC)
-  └─ meltano invoke tap-wordpress-org > output/tap-output.jsonl   # extract
-      └─ scripts/load_snapshot.py                                # → catalog.duckdb
-          └─ git commit catalog.duckdb                           # stored in the repo
+  └─ gh release download data-latest catalog.duckdb               # previous snapshot
+      └─ meltano invoke tap-wordpress-org > output/tap-output.jsonl   # extract
+          └─ scripts/load_snapshot.py                            # → catalog.duckdb (CHECKPOINTed)
+              └─ gh release upload data-latest catalog.duckdb --clobber   # stored on the release
 ```
 
 The tap is consumed as a pinned dependency
@@ -78,6 +85,9 @@ meltano install
 mkdir -p output
 meltano invoke tap-wordpress-org > output/tap-output.jsonl
 
+# Optional: start from the latest production snapshot rather than a fresh DB.
+#   gh release download data-latest --pattern catalog.duckdb --clobber
+
 # Load the JSONL into catalog.duckdb, stamped with today's UTC date.
 python scripts/load_snapshot.py --input output --db catalog.duckdb
 
@@ -118,9 +128,10 @@ served on GitHub Pages.
 JSON files the dashboard loads into `docs/data/`. That directory is
 gitignored — it is **generated in CI at deploy time and never committed**.
 
-The [`pages.yml`](.github/workflows/pages.yml) workflow regenerates
-`docs/data/` and deploys the whole `docs/` folder. It runs on every push
-that touches `docs/` and after each daily sync, so a fresh snapshot
+The [`pages.yml`](.github/workflows/pages.yml) workflow downloads the
+latest `catalog.duckdb` from the `data-latest` release, regenerates
+`docs/data/`, and deploys the whole `docs/` folder. It runs on every
+push that touches `docs/` and after each daily sync, so a fresh snapshot
 redeploys the dashboard automatically.
 
 GitHub Pages must be enabled once, by hand: **Settings → Pages → Source**

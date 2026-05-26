@@ -1,8 +1,11 @@
 name: daily-sync
 
 # Runs the WordPress.org ecosystem extract once a day, loads the result
-# into catalog.duckdb, and commits the updated database back to this repo.
-# The repo itself is the storage — there is no database server.
+# into catalog.duckdb, and re-uploads the database as the single asset
+# attached to the `data-latest` GitHub release. The release IS the
+# storage: there is no database server, and the file never gets committed
+# back to the repo (GitHub's 100 MB per-file push limit makes that
+# unworkable once the snapshot history grows).
 
 on:
   schedule:
@@ -11,14 +14,18 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
 
-# Required so the job can commit catalog.duckdb back to the repository.
+# Required so the job can create/replace the `data-latest` release asset.
 permissions:
   contents: write
 
-# Never let two snapshot runs race on the same DuckDB file / git push.
+# Never let two snapshot runs race on the same release asset.
 concurrency:
   group: daily-sync
   cancel-in-progress: false
+
+env:
+  RELEASE_TAG: data-latest
+  DB_FILE: catalog.duckdb
 
 jobs:
   sync:
@@ -40,9 +47,22 @@ jobs:
       - name: Install Meltano plugins
         run: meltano install
 
+      - name: Download previous snapshot from release
+        # First-ever run will find no release; that is fine, load_snapshot.py
+        # will create a fresh catalog.duckdb from today's extract.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release download "$RELEASE_TAG" --pattern "$DB_FILE" --clobber; then
+            echo "Downloaded existing $DB_FILE from release $RELEASE_TAG."
+            ls -lh "$DB_FILE"
+          else
+            echo "No existing $DB_FILE on release $RELEASE_TAG, starting fresh."
+          fi
+
       - name: Extract WordPress.org streams to JSONL
         # Run the tap directly and capture its raw Singer output. No Singer
-        # loader is used — load_snapshot.py reads the raw messages itself.
+        # loader is used, load_snapshot.py reads the raw messages itself.
         run: |
           mkdir -p output
           meltano invoke tap-wordpress-org > output/tap-output.jsonl
@@ -50,20 +70,24 @@ jobs:
       - name: Load snapshot into DuckDB
         # load_snapshot.py exits non-zero if the plugins or themes stream
         # produced zero records, which fails the whole run loudly and
-        # skips the commit step below — a broken extract is never stored.
-        run: python scripts/load_snapshot.py --input output --db catalog.duckdb
+        # skips the upload step below, so a broken extract is never stored.
+        # It also runs CHECKPOINT at the end to keep the on-disk file
+        # compact (the WAL otherwise inflates the file by ~75 MB per run).
+        run: python scripts/load_snapshot.py --input output --db "$DB_FILE"
 
-      - name: Commit DuckDB snapshot
+      - name: Upload snapshot to release
+        # Replace the asset on the `data-latest` release. If the release
+        # does not exist yet (first run), create it with the file attached.
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add catalog.duckdb
-          if git diff --cached --quiet; then
-            echo "No changes in catalog.duckdb — nothing to commit."
+          ls -lh "$DB_FILE"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$DB_FILE" --clobber
+            echo "Replaced $DB_FILE on release $RELEASE_TAG."
           else
-            git commit -m "Daily snapshot $(date -u +%Y-%m-%d)"
-            # Replay onto anything pushed during this run so the push
-            # cannot fail non-fast-forward and drop the snapshot.
-            git pull --rebase origin "${{ github.ref_name }}"
-            git push
+            gh release create "$RELEASE_TAG" "$DB_FILE" \
+              --title "Latest DuckDB snapshot" \
+              --notes "Rolling snapshot of catalog.duckdb. Replaced daily by the daily-sync workflow."
+            echo "Created release $RELEASE_TAG with $DB_FILE attached."
           fi

@@ -5,8 +5,12 @@
 output/
 *.jsonl
 
-# The DuckDB snapshot database IS committed on purpose (the repo is the
-# storage), so it is deliberately NOT ignored here.
+# The DuckDB snapshot database lives as an asset on the `data-latest`
+# GitHub release (see .github/workflows/daily-sync.yml). It used to be
+# committed to the repo, but the file grew past GitHub's 100 MB push
+# limit. Both workflows download it fresh at run time.
+catalog.duckdb
+*.duckdb.wal
 
 # Dashboard data — regenerated from catalog.duckdb by the Pages workflow
 # and deployed as a build artifact; never committed (see scripts/export_dashboard.py).

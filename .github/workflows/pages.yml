@@ -1,8 +1,10 @@
 name: Deploy dashboard
 
 # Builds the static dashboard's JSON data from catalog.duckdb and deploys
-# the docs/ folder to GitHub Pages. docs/data/ is gitignored, so it is
-# regenerated here at deploy time and never committed.
+# the docs/ folder to GitHub Pages. The database itself lives as an
+# asset on the `data-latest` GitHub release (see daily-sync.yml), so
+# this workflow downloads it fresh at deploy time. docs/data/ is
+# gitignored and regenerated here at deploy time, never committed.
 
 on:
   workflow_dispatch:
@@ -19,12 +21,17 @@ on:
     workflows: ["daily-sync"]
     types: [completed]
 
-# Pages deploys need read access to the repo plus the OIDC token and
-# pages write scope used by deploy-pages.
+# Pages deploys need read access to the repo (to read its release assets
+# via gh CLI) plus the OIDC token and pages write scope used by
+# deploy-pages.
 permissions:
   contents: read
   pages: write
   id-token: write
+
+env:
+  RELEASE_TAG: data-latest
+  DB_FILE: catalog.duckdb
 
 # Never let two Pages deploys race; let an in-flight deploy finish.
 concurrency:
@@ -51,8 +58,18 @@ jobs:
       - name: Install dependencies
         run: pip install duckdb
 
+      - name: Download snapshot from release
+        # The DB lives on the `data-latest` GitHub release, not in the
+        # repo. Fail fast if there is no asset yet (the dashboard cannot
+        # be built without it).
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$RELEASE_TAG" --pattern "$DB_FILE" --clobber
+          ls -lh "$DB_FILE"
+
       - name: Export dashboard data
-        run: python scripts/export_dashboard.py --db catalog.duckdb --out docs/data
+        run: python scripts/export_dashboard.py --db "$DB_FILE" --out docs/data
 
       - name: Configure Pages
         # Pages must be enabled once by hand in Settings -> Pages

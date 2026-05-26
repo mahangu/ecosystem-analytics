@@ -357,6 +357,10 @@ def main():
                                 snapshot_date)
             print(f"  {spec['table']:<26} {count:>8,} rows")
         con.execute("COMMIT")
+        # Flush the WAL into the data file so the on-disk size stays compact.
+        # Without this, the file balloons by ~75 MB per load and quickly
+        # blows past the 2 GB release-asset limit.
+        con.execute("CHECKPOINT")
     except Exception:
         con.execute("ROLLBACK")
         raise
